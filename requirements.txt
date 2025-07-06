@@ -1,0 +1,34 @@
+# === CORE FRAMEWORK ===
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# === TELEGRAM BOT ===
+python-telegram-bot==20.3
+
+# === AI & GOOGLE SERVICES ===
+google-generativeai==0.3.0
+google-api-core==2.25.0rc1
+google-auth==2.40.2
+
+# === HTTP & REQUESTS ===
+requests==2.31.0
+httpx==0.24.1
+aiofiles==23.2.1
+
+# === DATA & UTILITIES ===
+python-dotenv==1.0.0
+Pillow==11.2.1
+pydantic==2.11.4
+
+# === PAYMENTS ===
+yookassa==3.0.0
+
+# === PRODUCTION SERVER (только для Render) ===
+gunicorn==21.2.0
+
+# === DATABASE (условно) ===
+# psycopg2-binary>=2.9.7; sys_platform != "win32"
+# SQLAlchemy==2.0.41
+
+# === DEVELOPMENT ONLY ===
+# Для локальной разработки без PostgreSQL можно использовать SQLite

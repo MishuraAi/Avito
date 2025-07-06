@@ -1,0 +1,132 @@
+# 🐳 Docker Compose для разработки Avito AI Responder
+version: '3.8'
+
+services:
+  # 🐘 PostgreSQL база данных
+  postgres:
+    image: postgres:15-alpine
+    container_name: avito_postgres_dev
+    environment:
+      POSTGRES_DB: avito_ai_db
+      POSTGRES_USER: avito_user
+      POSTGRES_PASSWORD: avito_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      # Персистентное хранение данных
+      - postgres_data:/var/lib/postgresql/data
+      # Инициализация БД (опционально)
+      - ./docker/init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U avito_user -d avito_ai_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - avito_network
+
+  # 🔴 Redis для кеширования
+  redis:
+    image: redis:7-alpine
+    container_name: avito_redis_dev
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - avito_network
+
+  # 🤖 Основное приложение
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: avito_app_dev
+    environment:
+      # Основные настройки
+      DEBUG: "true"
+      ENVIRONMENT: development
+      
+      # База данных
+      DATABASE_URL: postgresql://avito_user:avito_password@postgres:5432/avito_ai_db
+      TEST_DATABASE_URL: postgresql://avito_user:avito_password@postgres:5432/avito_ai_test_db
+      
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+      
+      # API ключи (замените на реальные!)
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-your-gemini-api-key-here}
+      AVITO_CLIENT_ID: ${AVITO_CLIENT_ID:-your-avito-client-id}
+      AVITO_CLIENT_SECRET: ${AVITO_CLIENT_SECRET:-your-avito-client-secret}
+      
+      # Безопасность
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-jwt-secret-change-in-production}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      
+      # CORS
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:8000,http://127.0.0.1:3000,http://127.0.0.1:8000"
+      
+      # Логирование
+      LOG_LEVEL: DEBUG
+      LOG_FILE_PATH: /app/data/logs/app.log
+      
+      # Сервер
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8000
+    
+    ports:
+      - "8000:8000"
+    
+    volumes:
+      # Монтируем код для hot reload
+      - .:/app
+      - /app/__pycache__
+      # Персистентные данные
+      - app_data:/app/data
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    restart: unless-stopped
+    networks:
+      - avito_network
+
+# 📦 Volumes для персистентного хранения
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  app_data:
+    driver: local
+
+# 🌐 Сети
+networks:
+  avito_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

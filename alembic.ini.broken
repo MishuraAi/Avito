@@ -1,0 +1,66 @@
+# Конфигурация Alembic для Avito AI Responder
+# Исправлено для Docker
+
+[alembic]
+# Путь к директории с миграциями
+script_location = migrations
+
+# Шаблон для именования файлов миграций
+file_template = %%(year)d%%(month).2d%%(day).2d_%%(hour).2d%%(minute).2d_%%(rev)s_%%(slug)s
+
+# Временная зона для миграций
+timezone = UTC
+
+# Максимальная длина ревизии
+truncate_slug_length = 40
+
+# URL базы данных (будет подставляться из переменных окружения через env.py)
+# sqlalchemy.url = 
+
+# Настройки SQLAlchemy
+sqlalchemy.echo = false
+sqlalchemy.pool_pre_ping = true
+sqlalchemy.pool_size = 5
+sqlalchemy.max_overflow = 10
+sqlalchemy.pool_timeout = 30
+sqlalchemy.pool_recycle = 3600
+
+# Настройки сравнения для автогенерации миграций
+compare_type = true
+compare_server_default = true
+render_as_batch = true
+
+# Настройки логирования
+[loggers]
+keys = root,sqlalchemy,alembic
+
+[handlers]
+keys = console
+
+[formatters] 
+keys = generic
+
+[logger_root]
+level = WARN
+handlers = console
+qualname =
+
+[logger_sqlalchemy]
+level = WARN
+handlers =
+qualname = sqlalchemy.engine
+
+[logger_alembic]
+level = INFO
+handlers =
+qualname = alembic
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(levelname)-5.5s [%(name)s] %(message)s
+datefmt = %H:%M:%S

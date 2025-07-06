@@ -1,0 +1,246 @@
+# ===== PYTHON =====
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.virtualenv/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# ===== ENVIRONMENT VARIABLES =====
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.staging
+*.env
+
+# ===== DATABASE =====
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# PostgreSQL
+postgresql/
+pg_data/
+
+# ===== LOGS =====
+logs/
+*.log
+log/
+data/logs/
+
+# ===== CACHE =====
+.cache/
+*.cache
+__cache__/
+
+# Redis
+dump.rdb
+
+# ===== NODE.JS / FRONTEND =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Build outputs
+frontend/build/
+frontend/dist/
+*.tsbuildinfo
+
+# ===== DOCKER =====
+.dockerignore
+docker-compose.override.yml
+
+# ===== IDE / EDITORS =====
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ===== OS SPECIFIC =====
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.directory
+.trash-*
+
+# ===== UPLOADS & MEDIA =====
+data/uploads/
+uploads/
+media/
+static/uploads/
+
+# ===== BACKUPS =====
+data/backups/
+backups/
+*.backup
+*.bak
+*.tmp
+
+# ===== SELENIUM =====
+chromedriver
+geckodriver
+*.exe
+drivers/
+
+# ===== CERTIFICATES & KEYS =====
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+keys/
+
+# ===== MONITORING =====
+prometheus_data/
+grafana_data/
+
+# ===== DOCUMENTATION BUILD =====
+docs/_build/
+docs/.doctrees/
+site/
+
+# ===== TESTING =====
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+test-results/
+coverage-reports/
+
+# ===== TEMPORARY FILES =====
+*.tmp
+*.temp
+temp/
+tmp/
+
+# ===== PROFILING =====
+*.prof
+profile_*/
+
+# ===== MIGRATION FILES (если нужно игнорировать) =====
+# alembic/versions/*.py  # Раскомментируйте если нужно
+
+# ===== CUSTOM PROJECT SPECIFIC =====
+# Добавьте сюда специфичные для проекта файлы и папки
+selenium_screenshots/
+download_files/
+error_screenshots/
