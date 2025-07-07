@@ -1,49 +1,19 @@
-# Создаем временный файл без psycopg2
-@"
-# === CORE FRAMEWORK ===
-fastapi==0.104.1
+﻿fastapi==0.104.1
 uvicorn[standard]==0.24.0
-gunicorn==21.2.0
-
-# === DATABASE (SQLite версия) ===
+pydantic==2.5.0
+python-dotenv==1.0.0
 sqlalchemy==2.0.23
 alembic==1.12.1
-
-# === AUTHENTICATION & SECURITY ===
+psycopg2-binary==2.9.9
+redis==5.0.1
+aiohttp==3.9.1
+google-generativeai==0.3.2
+python-multipart==0.0.6
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
-
-# === AI & GOOGLE SERVICES ===
-google-generativeai==0.3.0
-google-api-core==2.25.0rc1
-google-auth==2.40.2
-
-# === HTTP & REQUESTS ===
+gunicorn==21.2.0
 requests==2.31.0
 httpx==0.24.1
-aiohttp==3.8.6
-
-# === DATA & UTILITIES ===
-python-dotenv==1.0.0
-pydantic==2.5.0
-pydantic-settings==2.1.0
-
-# === CACHING (опционально) ===
-# redis==5.0.1
-# hiredis==2.2.3
-
-# === FILE HANDLING ===
 aiofiles==23.2.1
-Pillow==10.1.0
-
-# === VALIDATION & PARSING ===
 email-validator==2.1.0
-
-# === DATE & TIME ===
 python-dateutil==2.8.2
-pytz==2023.3
-
-# === UTILITIES ===
-click==8.1.7
-"@ | Out-File -FilePath "requirements_sqlite.txt" -Encoding UTF8
