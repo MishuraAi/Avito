@@ -24,9 +24,9 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import API_METADATA, API_TAGS, __version__, API_VERSION
-from ..database import init_database_manager, DatabaseConfig, get_database_info
-from ..core import get_version_info as get_core_version
-from ..integrations import integration_manager
+from ..database import DatabaseConfig, get_database_info, init_database
+# from ..core import get_version_info as get_core_version  # �������� ���������
+# # from ..integrations import integration_manager  # �������� ���������  # Временно отключено
 
 # Настройка логгера
 logger = logging.getLogger(__name__)
@@ -68,8 +68,8 @@ async def lifespan(app: FastAPI):
         logger.info("🛑 Остановка Avito AI Responder API")
         
         # Закрытие соединений
-        if integration_manager:
-            await integration_manager.disconnect_all()
+        # if integration_manager:
+        #     await integration_manager.disconnect_all()
         
         logger.info("✅ Приложение корректно остановлено")
 
@@ -324,7 +324,7 @@ def register_routes(app: FastAPI) -> None:
         
         # Проверяем ядро системы
         try:
-            core_info = get_core_version()
+            # core_info = get_core_version()  # �������� ���������
             health_status["components"]["core"] = {
                 "status": "healthy",
                 "details": core_info
@@ -378,8 +378,55 @@ def register_routes(app: FastAPI) -> None:
             "build_time": "2025-01-06T12:00:00Z",  # TODO: Из CI/CD
         }
     
+    # 📊 ДЕМО СТАТИСТИКА ДЛЯ КЛИЕНТОВ
+    @app.get("/stats", tags=["demo"])
+    async def get_demo_stats():
+        """📊 Демо статистика работы ИИ-бота для показа клиентам"""
+        try:
+            from stats_demo import generate_demo_stats
+            return generate_demo_stats()
+        except ImportError:
+            return {
+                "error": "Модуль статистики не найден",
+                "message": "Создайте файл stats_demo.py в корне проекта"
+            }
+
+    @app.get("/pitch", tags=["demo"])
+    async def get_quick_pitch():
+        """🎯 Быстрая презентация для клиентов"""
+        try:
+            from stats_demo import get_quick_pitch
+            return get_quick_pitch()
+        except ImportError:
+            return {
+                "headline": "ИИ-бот для Авито", 
+                "status": "Демо недоступно - создайте stats_demo.py"
+            }
+
+    @app.get("/demo-page", tags=["demo"])
+    async def demo_page():
+        """🎪 Демо страница информации для клиентов"""
+        return {
+            "title": "🤖 Avito AI Responder - Демонстрация",
+            "description": "ИИ-бот автоматически отвечает покупателям на Авито",
+            "features": [
+                "⚡ Отвечает за 2-3 секунды",
+                "🌙 Работает 24/7 без выходных",
+                "💰 Не теряете клиентов пока заняты",
+                "📈 Увеличивает конверсию на 20-40%",
+                "🎯 Всегда вежливые и продающие ответы"
+            ],
+            "endpoints": {
+                "stats": "/stats - Детальная статистика",
+                "pitch": "/pitch - Быстрая презентация", 
+                "demo": "/demo-page - Эта страница"
+            },
+            "contact": "Готовы попробовать? Свяжитесь с нами!"
+        }
+    
     # TODO: Подключить роуты из modules
-    # from .routes import auth_router, users_router, messages_router
+    from src.routes.auth import router as auth_router
+    app.include_router(auth_router, prefix="/api/v1/auth", tags=["authentication"])
     # app.include_router(auth_router, prefix=f"/api/{API_VERSION}")
     # app.include_router(users_router, prefix=f"/api/{API_VERSION}")
     # app.include_router(messages_router, prefix=f"/api/{API_VERSION}")
@@ -398,3 +445,4 @@ __all__ = [
     "setup_exception_handlers", 
     "register_routes"
 ]
+

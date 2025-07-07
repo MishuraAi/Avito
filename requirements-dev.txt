@@ -1,13 +1,30 @@
 # === DEVELOPMENT REQUIREMENTS ===
 # Для локальной разработки на Windows
 
+# === BASE REQUIREMENTS ===
 -r requirements.txt
 
-# === DEVELOPMENT TOOLS ===
+# === TESTING ===
 pytest==7.4.3
 pytest-asyncio==0.21.1
-black==23.9.1
-flake8==6.0.0
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+httpx==0.24.1
+
+# === CODE QUALITY ===
+black==23.11.0
+isort==5.12.0
+flake8==6.1.0
+mypy==1.7.1
+
+# === DEVELOPMENT TOOLS ===
+pre-commit==3.6.0
+ipython==8.17.2
+ipdb==0.13.13
+
+# === API TESTING ===
+factory-boy==3.3.0
+faker==20.1.0
 
 # === LOCAL DATABASE ===
 # Для разработки используем SQLite вместо PostgreSQL

@@ -128,7 +128,7 @@ class SortParams(BaseSchema):
     """
     
     sort_by: Optional[str] = Field(None, description="Поле для сортировки")
-    sort_order: Optional[str] = Field("asc", regex="^(asc|desc)$", description="Направление сортировки")
+    sort_order: Optional[str] = Field("asc", pattern="^(asc|desc)$", description="Направление сортировки")
     
     class Config:
         schema_extra = {
