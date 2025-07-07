@@ -1,0 +1,294 @@
+# 🐳 Docker Compose для продакшена
+# Файл: docker/docker-compose.prod.yml
+
+version: '3.8'
+
+services:
+  # ==============================================================================
+  # 🚀 NGINX REVERSE PROXY & LOAD BALANCER
+  # ==============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: avito-nginx-prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - app
+    networks:
+      - avito-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==============================================================================
+  # 🐍 AVITO AI RESPONDER APP (Несколько инстансов)
+  # ==============================================================================
+  app:
+    image: avito-ai-responder:latest
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=False
+      - DATABASE_URL=postgresql://avito_user:${POSTGRES_PASSWORD}@postgres:5432/avito_ai_db
+      - REDIS_URL=redis://redis:6379/0
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - AVITO_CLIENT_ID=${AVITO_CLIENT_ID}
+      - AVITO_CLIENT_SECRET=${AVITO_CLIENT_SECRET}
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://yourdomain.com}
+      - LOG_LEVEL=INFO
+      - WORKERS=2
+    volumes:
+      - app_logs:/app/data/logs
+      - app_cache:/app/data/cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - avito-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    command: >
+      sh -c "
+        echo '🔄 Применение миграций...' &&
+        alembic upgrade head &&
+        echo '🚀 Запуск продакшен сервера...' &&
+        gunicorn src.api.main:app -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 --max-requests 1000 --max-requests-jitter 100 --timeout 30
+      "
+
+  # ==============================================================================
+  # 🗄️ POSTGRESQL DATABASE (Продакшен конфигурация)
+  # ==============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: avito-postgres-prod
+    environment:
+      POSTGRES_DB: avito_ai_db
+      POSTGRES_USER: avito_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - postgres_backups:/backups
+    networks:
+      - avito-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U avito_user -d avito_ai_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+
+  # ==============================================================================
+  # ⚡ REDIS (Продакшен конфигурация)
+  # ==============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: avito-redis-prod
+    volumes:
+      - redis_data:/data
+      - ./redis.prod.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - avito-network
+    restart: unless-stopped
+    command: redis-server /usr/local/etc/redis/redis.conf --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ==============================================================================
+  # 🔄 CELERY WORKER (Фоновые задачи)
+  # ==============================================================================
+  celery-worker:
+    image: avito-ai-responder:latest
+    container_name: avito-celery-worker-prod
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://avito_user:${POSTGRES_PASSWORD}@postgres:5432/avito_ai_db
+      - REDIS_URL=redis://redis:6379/0
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - AVITO_CLIENT_ID=${AVITO_CLIENT_ID}
+      - AVITO_CLIENT_SECRET=${AVITO_CLIENT_SECRET}
+      - C_FORCE_ROOT=1
+    volumes:
+      - app_logs:/app/data/logs
+      - app_cache:/app/data/cache
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - avito-network
+    restart: unless-stopped
+    command: celery -A src.core.celery_app worker --loglevel=info --concurrency=2
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # ==============================================================================
+  # 📊 CELERY BEAT (Планировщик задач)
+  # ==============================================================================
+  celery-beat:
+    image: avito-ai-responder:latest
+    container_name: avito-celery-beat-prod
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://avito_user:${POSTGRES_PASSWORD}@postgres:5432/avito_ai_db
+      - REDIS_URL=redis://redis:6379/0
+      - C_FORCE_ROOT=1
+    volumes:
+      - app_logs:/app/data/logs
+      - celery_beat_data:/app/data/celerybeat
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - avito-network
+    restart: unless-stopped
+    command: celery -A src.core.celery_app beat --loglevel=info --pidfile=/app/data/celerybeat/celerybeat.pid --schedule=/app/data/celerybeat/celerybeat-schedule
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+  # ==============================================================================
+  # 📈 PROMETHEUS MONITORING
+  # ==============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: avito-prometheus-prod
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - avito-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  # ==============================================================================
+  # 📊 GRAFANA DASHBOARD
+  # ==============================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: avito-grafana-prod
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    depends_on:
+      - prometheus
+    networks:
+      - avito-network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+# ==============================================================================
+# 📦 VOLUMES
+# ==============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  postgres_backups:
+    driver: local
+  redis_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_cache:
+    driver: local
+  celery_beat_data:
+    driver: local
+  nginx_logs:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# ==============================================================================
+# 🌐 NETWORKS
+# ==============================================================================
+networks:
+  avito-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+# ==============================================================================
+# 📋 ДОПОЛНИТЕЛЬНЫЕ КОНФИГУРАЦИИ
+# ==============================================================================
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"

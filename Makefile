@@ -1,251 +1,274 @@
-# 🛠️ Makefile для управления проектом Avito AI Bot
+# 🛠️ Makefile для Avito AI Responder
+# Автоматизация команд разработки и развертывания
+
+.PHONY: help install test clean lint format type-check run dev prod docker-* setup
+
+# Цвета для красивого вывода
+GREEN := \033[32m
+YELLOW := \033[33m
+BLUE := \033[34m
+PURPLE := \033[35m
+CYAN := \033[36m
+WHITE := \033[37m
+RED := \033[31m
+RESET := \033[0m
 
 # Переменные
-PYTHON := python
-PIP := pip
-PYTEST := pytest
-ALEMBIC := alembic
-UVICORN := uvicorn
+PYTHON := python3
+PIP := pip3
+DOCKER := docker
+DOCKER_COMPOSE := docker-compose
+PROJECT_NAME := avito-ai-responder
 
-# Цвета для вывода
-GREEN := \033[0;32m
-YELLOW := \033[1;33m
-RED := \033[0;31m
-NC := \033[0m # No Color
+##@ Основные команды
 
-.PHONY: help install install-dev setup test test-unit test-integration test-coverage clean lint format check-db init-db run docs
-
-# По умолчанию показываем помощь
-help:
-	@echo "$(GREEN)🚀 Avito AI Bot - Команды управления проектом$(NC)"
+help: ## 📋 Показать справку по командам
+	@echo "$(CYAN)🤖 Avito AI Responder - Makefile команды$(RESET)"
 	@echo ""
-	@echo "$(YELLOW)📦 Установка и настройка:$(NC)"
-	@echo "  install          - Установить продакшен зависимости"
-	@echo "  install-dev      - Установить зависимости для разработки"
-	@echo "  setup           - Полная настройка проекта"
+	@awk 'BEGIN {FS = ":.*##"; printf "Использование:\n  make $(CYAN)<target>$(RESET)\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2 } /^##@/ { printf "\n$(YELLOW)%s$(RESET)\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+##@ 🔧 Настройка окружения
+
+setup: ## ⚙️ Полная настройка проекта
+	@echo "$(BLUE)🔧 Настройка проекта Avito AI Responder...$(RESET)"
+	@$(PYTHON) -m venv venv || echo "$(YELLOW)⚠️ Виртуальное окружение уже существует$(RESET)"
+	@echo "$(GREEN)✅ Активируйте виртуальное окружение: source venv/bin/activate$(RESET)"
+	@echo "$(GREEN)✅ Затем выполните: make install$(RESET)"
+
+install: ## 📦 Установка зависимостей
+	@echo "$(BLUE)📦 Установка зависимостей...$(RESET)"
+	@$(PIP) install --upgrade pip
+	@$(PIP) install -r requirements-dev.txt
+	@echo "$(GREEN)✅ Зависимости установлены$(RESET)"
+
+env: ## 📄 Копирование .env.example в .env
+	@echo "$(BLUE)📄 Настройка переменных окружения...$(RESET)"
+	@cp .env.example .env || echo "$(YELLOW)⚠️ .env уже существует$(RESET)"
+	@echo "$(GREEN)✅ Файл .env создан. Не забудьте добавить API ключи!$(RESET)"
+
+##@ 🗄️ База данных
+
+db-init: ## 🔄 Инициализация миграций базы данных
+	@echo "$(BLUE)🔄 Инициализация миграций...$(RESET)"
+	@$(PYTHON) scripts/init_migrations.py
+
+db-migrate: ## ⬆️ Применение миграций
+	@echo "$(BLUE)⬆️ Применение миграций...$(RESET)"
+	@alembic upgrade head
+
+db-revision: ## 📝 Создание новой миграции
+	@echo "$(BLUE)📝 Создание новой миграции...$(RESET)"
+	@read -p "Название миграции: " name; alembic revision --autogenerate -m "$$name"
+
+db-check: ## 🔍 Проверка состояния базы данных
+	@echo "$(BLUE)🔍 Проверка базы данных...$(RESET)"
+	@$(PYTHON) scripts/check_database.py
+
+db-setup: ## 🛠️ Создание базы данных PostgreSQL
+	@echo "$(BLUE)🛠️ Настройка базы данных...$(RESET)"
+	@$(PYTHON) scripts/setup_database.py
+
+##@ 🧪 Тестирование
+
+test: ## 🧪 Запуск всех тестов
+	@echo "$(BLUE)🧪 Запуск тестов...$(RESET)"
+	@pytest -v
+
+test-unit: ## 📊 Запуск unit тестов
+	@echo "$(BLUE)📊 Запуск unit тестов...$(RESET)"
+	@pytest tests/unit/ -v
+
+test-integration: ## 🔗 Запуск integration тестов
+	@echo "$(BLUE)🔗 Запуск integration тестов...$(RESET)"
+	@pytest tests/integration/ -v
+
+test-coverage: ## 📈 Тесты с покрытием кода
+	@echo "$(BLUE)📈 Анализ покрытия кода...$(RESET)"
+	@pytest --cov=src --cov-report=html --cov-report=term
+
+test-complete: ## 🎯 Полное тестирование системы
+	@echo "$(BLUE)🎯 Полное тестирование системы...$(RESET)"
+	@$(PYTHON) scripts/test_complete_setup.py
+
+##@ 🔍 Качество кода
+
+lint: ## 🔍 Проверка кода с flake8
+	@echo "$(BLUE)🔍 Проверка стиля кода...$(RESET)"
+	@flake8 src/ tests/ scripts/ --max-line-length=100 --exclude=migrations/
+
+format: ## ✨ Форматирование кода с black
+	@echo "$(BLUE)✨ Форматирование кода...$(RESET)"
+	@black src/ tests/ scripts/ --line-length=100 --exclude=migrations/
+
+format-check: ## 🎯 Проверка форматирования без изменений
+	@echo "$(BLUE)🎯 Проверка форматирования...$(RESET)"
+	@black src/ tests/ scripts/ --check --diff --line-length=100 --exclude=migrations/
+
+type-check: ## 🔍 Проверка типов с mypy
+	@echo "$(BLUE)🔍 Проверка типов...$(RESET)"
+	@mypy src/ --ignore-missing-imports
+
+isort: ## 📋 Сортировка импортов
+	@echo "$(BLUE)📋 Сортировка импортов...$(RESET)"
+	@isort src/ tests/ scripts/ --profile black
+
+isort-check: ## 🎯 Проверка сортировки импортов
+	@echo "$(BLUE)🎯 Проверка импортов...$(RESET)"
+	@isort src/ tests/ scripts/ --profile black --check-only --diff
+
+code-quality: lint format type-check isort ## 🏆 Полная проверка качества кода
+
+##@ 🚀 Запуск приложения
+
+run: ## 🚀 Запуск сервера разработки
+	@echo "$(BLUE)🚀 Запуск сервера разработки...$(RESET)"
+	@uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+
+run-prod: ## 🚀 Запуск продакшен сервера
+	@echo "$(BLUE)🚀 Запуск продакшен сервера...$(RESET)"
+	@gunicorn src.api.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
+
+##@ 🐳 Docker команды
+
+docker-setup: ## ⚙️ Настройка Docker окружения
+	@echo "$(PURPLE)🐳 Настройка Docker окружения...$(RESET)"
+	@$(PYTHON) scripts/docker_manager.py setup
+
+docker-build: ## 🏗️ Сборка Docker образа
+	@echo "$(PURPLE)🏗️ Сборка Docker образа...$(RESET)"
+	@$(PYTHON) scripts/docker_manager.py build
+
+docker-dev-up: ## 🚀 Запуск среды разработки в Docker
+	@echo "$(PURPLE)🚀 Запуск среды разработки...$(RESET)"
+	@$(PYTHON) scripts/docker_manager.py dev up
+
+docker-dev-down: ## 🛑 Остановка среды разработки
+	@echo "$(PURPLE)🛑 Остановка среды разработки...$(RESET)"
+	@$(PYTHON) scripts/docker_manager.py dev down
+
+docker-dev-logs: ## 📋 Просмотр логов разработки
+	@echo "$(PURPLE)📋 Просмотр логов...$(RESET)"
+	@$(PYTHON) scripts/docker_manager.py dev logs
+
+docker-dev-status: ## 📊 Статус контейнеров разработки
+	@echo "$(PURPLE)📊 Статус контейнеров...$(RESET)"
+	@$(PYTHON) scripts/docker_manager.py dev status
+
+docker-prod-deploy: ## 🚀 Развертывание продакшена
+	@echo "$(PURPLE)🚀 Развертывание продакшена...$(RESET)"
+	@$(PYTHON) scripts/docker_manager.py prod deploy
+
+docker-prod-down: ## 🛑 Остановка продакшена
+	@echo "$(PURPLE)🛑 Остановка продакшена...$(RESET)"
+	@$(PYTHON) scripts/docker_manager.py prod down
+
+docker-health: ## 🏥 Проверка здоровья сервисов
+	@echo "$(PURPLE)🏥 Проверка здоровья сервисов...$(RESET)"
+	@$(PYTHON) scripts/docker_manager.py health
+
+docker-clean: ## 🧹 Очистка Docker ресурсов
+	@echo "$(PURPLE)🧹 Очистка Docker ресурсов...$(RESET)"
+	@$(PYTHON) scripts/docker_manager.py clean
+
+##@ 🐳 Прямые Docker команды
+
+docker-build-direct: ## 🏗️ Прямая сборка образа
+	@echo "$(CYAN)🏗️ Прямая сборка Docker образа...$(RESET)"
+	@$(DOCKER) build -f docker/Dockerfile -t $(PROJECT_NAME):latest .
+
+docker-run-direct: ## 🚀 Прямой запуск контейнера
+	@echo "$(CYAN)🚀 Прямой запуск контейнера...$(RESET)"
+	@$(DOCKER) run -d --name $(PROJECT_NAME)-test -p 8000:8000 $(PROJECT_NAME):latest
+
+docker-compose-dev: ## 🔧 Docker Compose для разработки
+	@echo "$(CYAN)🔧 Запуск Docker Compose (разработка)...$(RESET)"
+	@$(DOCKER_COMPOSE) -f docker/docker-compose.yml up -d
+
+docker-compose-prod: ## 🚀 Docker Compose для продакшена
+	@echo "$(CYAN)🚀 Запуск Docker Compose (продакшен)...$(RESET)"
+	@$(DOCKER_COMPOSE) -f docker/docker-compose.prod.yml up -d
+
+docker-compose-down-dev: ## 🛑 Остановка разработки
+	@echo "$(CYAN)🛑 Остановка Docker Compose (разработка)...$(RESET)"
+	@$(DOCKER_COMPOSE) -f docker/docker-compose.yml down
+
+docker-compose-down-prod: ## 🛑 Остановка продакшена
+	@echo "$(CYAN)🛑 Остановка Docker Compose (продакшен)...$(RESET)"
+	@$(DOCKER_COMPOSE) -f docker/docker-compose.prod.yml down
+
+##@ 🧹 Очистка
+
+clean: ## 🧹 Очистка временных файлов
+	@echo "$(YELLOW)🧹 Очистка временных файлов...$(RESET)"
+	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	@find . -type f -name "*.pyo" -delete 2>/dev/null || true
+	@find . -type f -name "*~" -delete 2>/dev/null || true
+	@find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
+	@rm -rf .pytest_cache/ .coverage htmlcov/ .tox/ .mypy_cache/
+	@echo "$(GREEN)✅ Временные файлы удалены$(RESET)"
+
+clean-all: clean docker-clean ## 🧹 Полная очистка (включая Docker)
+	@echo "$(YELLOW)🧹 Полная очистка завершена$(RESET)"
+
+##@ 📊 Разработка
+
+dev: docker-dev-up ## 🔧 Быстрый запуск среды разработки
+	@echo "$(GREEN)🎉 Среда разработки запущена!$(RESET)"
+	@echo "$(CYAN)📋 Доступные сервисы:$(RESET)"
+	@echo "  $(WHITE)http://localhost:8000$(RESET)      - Основное приложение"
+	@echo "  $(WHITE)http://localhost:8000/docs$(RESET) - Swagger UI"
+	@echo "  $(WHITE)http://localhost:8080$(RESET)      - PgAdmin (tools profile)"
+	@echo "  $(WHITE)http://localhost:8081$(RESET)      - Redis Commander (tools profile)"
+
+dev-stop: docker-dev-down ## 🛑 Остановка среды разработки
+
+prod: docker-prod-deploy ## 🚀 Быстрое развертывание продакшена
+	@echo "$(GREEN)🎉 Продакшен развернут!$(RESET)"
+
+##@ 📋 Информация
+
+status: ## 📊 Общий статус проекта
+	@echo "$(BLUE)📊 Статус проекта Avito AI Responder$(RESET)"
 	@echo ""
-	@echo "$(YELLOW)🗄️ База данных:$(NC)"
-	@echo "  check-db        - Проверить подключение к БД"
-	@echo "  setup-db        - Создать БД и пользователя"
-	@echo "  init-db         - Инициализировать миграции"
-	@echo "  migrate         - Применить миграции"
-	@echo "  migration       - Создать новую миграцию"
+	@echo "$(CYAN)🗂️ Файловая структура:$(RESET)"
+	@ls -la
 	@echo ""
-	@echo "$(YELLOW)🧪 Тестирование:$(NC)"
-	@echo "  test            - Запустить все тесты"
-	@echo "  test-unit       - Запустить unit тесты"
-	@echo "  test-integration- Запустить integration тесты"
-	@echo "  test-coverage   - Тесты с покрытием кода"
-	@echo "  test-complete   - Полное тестирование системы"
+	@echo "$(CYAN)🐳 Docker контейнеры:$(RESET)"
+	@$(DOCKER) ps -a --filter "name=$(PROJECT_NAME)" 2>/dev/null || echo "Нет запущенных контейнеров"
 	@echo ""
-	@echo "$(YELLOW)🔧 Разработка:$(NC)"
-	@echo "  run             - Запустить сервер разработки"
-	@echo "  run-prod        - Запустить продакшен сервер"
-	@echo "  lint            - Проверить код линтерами"
-	@echo "  format          - Отформатировать код"
-	@echo "  clean           - Очистить временные файлы"
-	@echo ""
-	@echo "$(YELLOW)📚 Документация:$(NC)"
-	@echo "  docs            - Открыть API документацию"
+	@echo "$(CYAN)📊 Образы Docker:$(RESET)"
+	@$(DOCKER) images | grep $(PROJECT_NAME) 2>/dev/null || echo "Образы не найдены"
 
-# ============================================================================
-# 📦 УСТАНОВКА И НАСТРОЙКА
-# ============================================================================
+logs: ## 📋 Показать логи приложения
+	@echo "$(BLUE)📋 Логи приложения...$(RESET)"
+	@$(PYTHON) scripts/docker_manager.py dev logs
 
-install:
-	@echo "$(GREEN)📦 Установка продакшен зависимостей...$(NC)"
-	$(PIP) install -r requirements.txt
+shell: ## 🖥️ Подключиться к shell контейнера
+	@echo "$(BLUE)🖥️ Подключение к shell...$(RESET)"
+	@$(DOCKER_COMPOSE) -f docker/docker-compose.yml exec app /bin/bash
 
-install-dev:
-	@echo "$(GREEN)📦 Установка зависимостей для разработки...$(NC)"
-	$(PIP) install -r requirements-dev.txt
-	@echo "$(GREEN)✅ Зависимости установлены$(NC)"
+##@ 🎯 Полные циклы
 
-setup: install-dev
-	@echo "$(GREEN)🚀 Полная настройка проекта...$(NC)"
-	@if [ ! -f .env ]; then \
-		echo "$(YELLOW)📄 Создание .env файла...$(NC)"; \
-		cp .env.example .env; \
-		echo "$(RED)⚠️ Отредактируйте .env файл с вашими настройками!$(NC)"; \
-	fi
-	@echo "$(GREEN)✅ Проект настроен. Выполните 'make setup-db' для настройки БД$(NC)"
+full-setup: setup env install db-init ## 🎯 Полная настройка проекта
+	@echo "$(GREEN)🎉 Полная настройка завершена!$(RESET)"
+	@echo "$(YELLOW)⚠️ Не забудьте:$(RESET)"
+	@echo "  1. Активировать виртуальное окружение: source venv/bin/activate"
+	@echo "  2. Отредактировать .env файл с вашими API ключами"
+	@echo "  3. Запустить: make dev"
 
-# ============================================================================
-# 🗄️ БАЗА ДАННЫХ
-# ============================================================================
+full-test: code-quality test-coverage test-complete ## 🎯 Полное тестирование
+	@echo "$(GREEN)🎉 Полное тестирование завершено!$(RESET)"
 
-check-db:
-	@echo "$(GREEN)🔍 Проверка подключения к базе данных...$(NC)"
-	$(PYTHON) scripts/check_database.py
+ci: code-quality test ## 🔄 CI/CD пайплайн (локальный)
+	@echo "$(GREEN)🎉 CI проверки прошли успешно!$(RESET)"
 
-setup-db:
-	@echo "$(GREEN)🛠️ Настройка базы данных...$(NC)"
-	$(PYTHON) scripts/setup_database.py
+##@ 🎨 Алиасы для удобства
 
-init-db:
-	@echo "$(GREEN)🔄 Инициализация миграций...$(NC)"
-	$(PYTHON) scripts/init_migrations.py
+up: dev ## 🚀 Алиас для dev
+down: dev-stop ## 🛑 Алиас для dev-stop
+build: docker-build ## 🏗️ Алиас для docker-build
+deploy: prod ## 🚀 Алиас для prod
 
-migrate:
-	@echo "$(GREEN)📈 Применение миграций...$(NC)"
-	$(ALEMBIC) upgrade head
-	@echo "$(GREEN)✅ Миграции применены$(NC)"
-
-migration:
-	@echo "$(GREEN)📝 Создание новой миграции...$(NC)"
-	@read -p "Введите описание миграции: " desc; \
-	$(ALEMBIC) revision --autogenerate -m "$$desc"
-
-# ============================================================================
-# 🧪 ТЕСТИРОВАНИЕ
-# ============================================================================
-
-test:
-	@echo "$(GREEN)🧪 Запуск всех тестов...$(NC)"
-	$(PYTEST) -v
-
-test-unit:
-	@echo "$(GREEN)🧪 Запуск unit тестов...$(NC)"
-	$(PYTEST) tests/unit/ -v -m "not external"
-
-test-integration:
-	@echo "$(GREEN)🧪 Запуск integration тестов...$(NC)"
-	$(PYTEST) tests/integration/ -v -m "not external"
-
-test-coverage:
-	@echo "$(GREEN)📊 Тесты с покрытием кода...$(NC)"
-	$(PYTEST) --cov=src --cov-report=html --cov-report=term-missing
-
-test-complete:
-	@echo "$(GREEN)🔬 Полное тестирование системы...$(NC)"
-	$(PYTHON) scripts/test_complete_setup.py
-
-test-external:
-	@echo "$(GREEN)🌐 Тесты внешних сервисов...$(NC)"
-	$(PYTEST) -v -m "external"
-
-# ============================================================================
-# 🔧 РАЗРАБОТКА
-# ============================================================================
-
-run:
-	@echo "$(GREEN)🚀 Запуск сервера разработки...$(NC)"
-	$(UVICORN) src.api.main:app --reload --host 0.0.0.0 --port 8000
-
-run-prod:
-	@echo "$(GREEN)🚀 Запуск продакшен сервера...$(NC)"
-	$(UVICORN) src.api.main:app --host 0.0.0.0 --port 8000 --workers 4
-
-dev: run
-
-lint:
-	@echo "$(GREEN)🔍 Проверка кода линтерами...$(NC)"
-	@echo "Flake8..."
-	-flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503
-	@echo "Black (dry-run)..."
-	-black --check src/ tests/
-	@echo "isort (dry-run)..."
-	-isort --check-only src/ tests/
-
-format:
-	@echo "$(GREEN)🎨 Форматирование кода...$(NC)"
-	black src/ tests/
-	isort src/ tests/
-	@echo "$(GREEN)✅ Код отформатирован$(NC)"
-
-clean:
-	@echo "$(GREEN)🧹 Очистка временных файлов...$(NC)"
-	find . -type f -name "*.pyc" -delete
-	find . -type d -name "__pycache__" -delete
-	find . -type d -name "*.egg-info" -exec rm -rf {} +
-	rm -rf build/
-	rm -rf dist/
-	rm -rf .coverage
-	rm -rf htmlcov/
-	rm -rf .pytest_cache/
-	rm -rf test.db
-	@echo "$(GREEN)✅ Очистка завершена$(NC)"
-
-# ============================================================================
-# 📚 ДОКУМЕНТАЦИЯ
-# ============================================================================
-
-docs:
-	@echo "$(GREEN)📚 Открытие API документации...$(NC)"
-	@echo "Запуск сервера для документации..."
-	@echo "Документация будет доступна по адресу:"
-	@echo "  • Swagger UI: http://localhost:8000/docs"
-	@echo "  • ReDoc:      http://localhost:8000/redoc"
-	@echo ""
-	$(UVICORN) src.api.main:app --reload --host 0.0.0.0 --port 8000
-
-# ============================================================================
-# 🏗️ DOCKER
-# ============================================================================
-
-docker-build:
-	@echo "$(GREEN)🐳 Сборка Docker образа...$(NC)"
-	docker build -t avito-ai-bot .
-
-docker-run:
-	@echo "$(GREEN)🐳 Запуск в Docker контейнере...$(NC)"
-	docker run -p 8000:8000 --env-file .env avito-ai-bot
-
-docker-compose:
-	@echo "$(GREEN)🐳 Запуск с Docker Compose...$(NC)"
-	docker-compose up -d
-
-docker-stop:
-	@echo "$(GREEN)🐳 Остановка Docker Compose...$(NC)"
-	docker-compose down
-
-# ============================================================================
-# 🔄 УТИЛИТЫ
-# ============================================================================
-
-status:
-	@echo "$(GREEN)📊 Статус проекта:$(NC)"
-	@echo "Python: $(shell $(PYTHON) --version)"
-	@echo "Pip: $(shell $(PIP) --version)"
-	@echo "База данных:"
-	@$(PYTHON) scripts/check_database.py 2>/dev/null || echo "  ❌ Не настроена"
-	@echo "Миграции:"
-	@$(ALEMBIC) current 2>/dev/null || echo "  ❌ Не инициализированы"
-
-update-deps:
-	@echo "$(GREEN)📦 Обновление зависимостей...$(NC)"
-	$(PIP) install --upgrade pip
-	$(PIP) install -r requirements-dev.txt --upgrade
-
-requirements:
-	@echo "$(GREEN)📝 Обновление requirements.txt...$(NC)"
-	$(PIP) freeze > requirements.txt
-
-# ============================================================================
-# 🎯 БЫСТРЫЕ КОМАНДЫ
-# ============================================================================
-
-# Быстрая настройка для новых разработчиков
-quick-setup: setup setup-db init-db migrate
-	@echo "$(GREEN)🎉 Быстрая настройка завершена!$(NC)"
-	@echo "Запустите 'make run' для старта сервера"
-
-# Полная проверка перед коммитом
-pre-commit: format lint test
-	@echo "$(GREEN)✅ Код готов к коммиту$(NC)"
-
-# Полный цикл разработки
-dev-cycle: clean install-dev init-db migrate test run
-
-# Безопасная очистка (с подтверждением)
-clean-all:
-	@echo "$(RED)⚠️ Это удалит ВСЕ временные файлы и БД!$(NC)"
-	@read -p "Вы уверены? [y/N]: " confirm; \
-	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
-		make clean; \
-		rm -f test.db; \
-		rm -rf migrations/; \
-		echo "$(GREEN)✅ Полная очистка завершена$(NC)"; \
-	else \
-		echo "$(YELLOW)Отменено$(NC)"; \
-	fi
+# Значения по умолчанию
+.DEFAULT_GOAL := help

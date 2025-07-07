@@ -1,0 +1,164 @@
+# 🐳 Docker Compose для разработки
+# Файл: docker/docker-compose.yml
+
+version: '3.8'
+
+services:
+  # ==============================================================================
+  # 🐍 ОСНОВНОЕ ПРИЛОЖЕНИЕ AVITO AI RESPONDER
+  # ==============================================================================
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: runtime
+    container_name: avito-ai-app-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=True
+      - DATABASE_URL=postgresql://avito_user:avito_password@postgres:5432/avito_ai_db
+      - REDIS_URL=redis://redis:6379/0
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - AVITO_CLIENT_ID=${AVITO_CLIENT_ID}
+      - AVITO_CLIENT_SECRET=${AVITO_CLIENT_SECRET}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-jwt-dev-secret}
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:8000
+    volumes:
+      - ../src:/app/src:ro
+      - ../scripts:/app/scripts:ro
+      - ../migrations:/app/migrations
+      - app_logs:/app/data/logs
+      - app_cache:/app/data/cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - avito-network
+    restart: unless-stopped
+    command: >
+      sh -c "
+        echo '🔄 Ожидание готовности базы данных...' &&
+        python scripts/check_database.py &&
+        echo '🚀 Применение миграций...' &&
+        python scripts/init_migrations.py &&
+        alembic upgrade head &&
+        echo '🎯 Запуск приложения...' &&
+        uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
+      "
+
+  # ==============================================================================
+  # 🗄️ POSTGRESQL DATABASE
+  # ==============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: avito-postgres-dev
+    environment:
+      POSTGRES_DB: avito_ai_db
+      POSTGRES_USER: avito_user
+      POSTGRES_PASSWORD: avito_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+    networks:
+      - avito-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U avito_user -d avito_ai_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ==============================================================================
+  # ⚡ REDIS CACHE & SESSIONS
+  # ==============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: avito-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ../docker/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - avito-network
+    restart: unless-stopped
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ==============================================================================
+  # 📊 PGADMIN (Опционально для разработки)
+  # ==============================================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: avito-pgadmin-dev
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@avito-ai.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - avito-network
+    restart: unless-stopped
+    profiles:
+      - tools  # Запускается только с профилем: docker-compose --profile tools up
+
+  # ==============================================================================
+  # 🔍 REDIS COMMANDER (Опционально для разработки)
+  # ==============================================================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: avito-redis-commander-dev
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - avito-network
+    restart: unless-stopped
+    profiles:
+      - tools  # Запускается только с профилем: docker-compose --profile tools up
+
+# ==============================================================================
+# 📦 VOLUMES
+# ==============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_cache:
+    driver: local
+
+# ==============================================================================
+# 🌐 NETWORKS
+# ==============================================================================
+networks:
+  avito-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
