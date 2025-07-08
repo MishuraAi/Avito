@@ -91,6 +91,65 @@ def create_app() -> FastAPI:
         docs_url=f"/api/{API_VERSION}/docs",
         redoc_url=f"/api/{API_VERSION}/redoc"
     )
+
+    # ===============================================
+    # ДОБАВЛЯЕМ ПРОДАКШЕН CORS + ЛОГИРОВАНИЕ + HEALTH CHECK
+    # ===============================================
+    from fastapi.middleware.cors import CORSMiddleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "https://avito-joq9.onrender.com",
+            "https://*.onrender.com",
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+            "*"  # Временно для отладки, в продакшене убрать
+        ],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+    )
+
+    @app.middleware("http")
+    async def log_requests(request, call_next):
+        import time
+        start_time = time.time()
+        print(f"\U0001F4E5 {request.method} {request.url}")
+        print(f"\U0001F310 Host: {request.headers.get('host', 'unknown')}")
+        print(f"\U0001F464 User-Agent: {request.headers.get('user-agent', 'unknown')[:50]}...")
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        print(f"\U0001F4E4 Response: {response.status_code} ({process_time:.3f}s)")
+        return response
+
+    @app.get("/")
+    async def root():
+        """Главная страница"""
+        return {
+            "message": "Avito AI Responder API",
+            "status": "running",
+            "version": "1.0.0",
+            "docs": "/docs"
+        }
+
+    @app.get("/health")
+    async def health_check():
+        """Health check endpoint"""
+        return {
+            "status": "healthy",
+            "service": "avito-ai-responder",
+            "timestamp": "2025-01-08T02:00:00Z",
+            "endpoints": [
+                "/",
+                "/health",
+                "/docs",
+                "/api/v1/auth/avito/status",
+                "/api/v1/auth/avito/callback"
+            ]
+        }
+    # ===============================================
+    # КОНЕЦ ДОБАВЛЕНИЯ
+    # ===============================================
     
     # Настраиваем middleware
     setup_middleware(app)
