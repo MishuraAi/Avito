@@ -1,39 +1,22 @@
 """
-API роуты для Авито ИИ-бота.
-
-Этот модуль экспортирует все роутеры API для использования в основном приложении.
-Каждый роутер отвечает за определенную область функциональности.
+Минимальная версия роутеров - только auth для Avito callback
+ВРЕМЕННО отключаем сложные роуты до исправления зависимостей
 """
 
 from fastapi import APIRouter
-from . import auth, users, messages, system
 
-# Основной роутер для всех API эндпоинтов
-api_router = APIRouter(prefix="/api/v1")
+# Создаем главный роутер
+main_router = APIRouter()
 
-# Подключение всех роутеров с их префиксами и тегами
-api_router.include_router(
-    auth.router,
-    prefix="/auth",
-    tags=["authentication"],
-)
+# Импортируем только auth роутер (исправленный)
+try:
+    from . import auth
+    main_router.include_router(auth.router, prefix="/auth", tags=["authentication"])
+    print("✅ Auth router загружен успешно")
+except Exception as e:
+    print(f"❌ Ошибка загрузки auth router: {e}")
 
-api_router.include_router(
-    users.router,
-    prefix="/users", 
-    tags=["users"],
-)
+# ВРЕМЕННО отключаем проблемные роуты
+# from . import users, messages, system
 
-api_router.include_router(
-    messages.router,
-    prefix="/messages",
-    tags=["messages"],
-)
-
-api_router.include_router(
-    system.router,
-    prefix="/system",
-    tags=["system"],
-)
-
-__all__ = ["api_router"]
+__all__ = ["main_router"]
