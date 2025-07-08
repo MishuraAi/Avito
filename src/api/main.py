@@ -166,70 +166,87 @@ def create_app() -> FastAPI:
 def setup_middleware(app: FastAPI) -> None:
     """
     🛡️ Настройка middleware компонентов
-    
-    Args:
-        app: FastAPI приложение
+    Обновлено для поддержки Render.com и продакшена
     """
-    
-    # CORS middleware
+
+    # CORS middleware - ОБНОВЛЕННЫЕ НАСТРОЙКИ
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
-            "http://localhost:3000",  # React dev server
-            "http://localhost:8000",  # FastAPI dev server
+            # Локальная разработка
+            "http://localhost:3000",
+            "http://localhost:8000",
             "http://127.0.0.1:3000",
             "http://127.0.0.1:8000",
-            # TODO: Добавить продакшен домены
+            
+            # Render.com продакшен
+            "https://avito-joq9.onrender.com",
+            "https://*.onrender.com",
+            
+            # Railway (если нужно)
+            "https://*.railway.app",
+            
+            # Временно для отладки (убрать в продакшене)
+            "*"
         ],
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=["*"],
     )
-    
-    # Trusted hosts middleware
+
+    # Trusted hosts middleware - ОБНОВЛЕННЫЕ НАСТРОЙКИ
     app.add_middleware(
-        TrustedHostMiddleware, 
+        TrustedHostMiddleware,
         allowed_hosts=[
+            # Локальные хосты
             "localhost",
             "127.0.0.1",
-            "*.railway.app",  # Railway хостинг
-            # TODO: Добавить продакшен домены
+            
+            # Render.com хостинг
+            "avito-joq9.onrender.com",
+            "*.onrender.com",
+            
+            # Railway хостинг
+            "*.railway.app",
+            
+            # Временно для отладки
+            "*"
         ]
     )
-    
-    # Middleware для логирования запросов
+
+    # Middleware для логирования запросов (БЕЗ ИЗМЕНЕНИЙ)
     @app.middleware("http")
     async def log_requests(request: Request, call_next):
         """Логирование всех HTTP запросов"""
-        
+
         start_time = time.time()
-        
+
         # Логируем входящий запрос
         logger.info(
-            "📨 %s %s - %s",
+            "\U0001F4E5 %s %s - %s",
             request.method,
             request.url.path,
             request.client.host if request.client else "unknown"
         )
-        
+
         # Выполняем запрос
         response = await call_next(request)
-        
+
         # Логируем ответ
         process_time = time.time() - start_time
         logger.info(
-            "📤 %s %s - %d - %.3fs",
+            "\U0001F4E4 %s %s - %d - %.3fs",
             request.method,
             request.url.path,
             response.status_code,
             process_time
         )
-        
+
         # Добавляем заголовок с временем обработки
         response.headers["X-Process-Time"] = str(process_time)
-        
+
         return response
-    
+
     # TODO: Добавить middleware для аутентификации
     # TODO: Добавить middleware для rate limiting
     # TODO: Добавить middleware для безопасности
